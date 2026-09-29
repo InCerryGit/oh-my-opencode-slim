@@ -913,7 +913,7 @@ describe('task-session-manager hook', () => {
     );
   });
 
-  test('ignores foreground, terminal, and malformed historical task parts', async () => {
+  test('recovers foreground and terminal history but ignores malformed task parts', async () => {
     const board = new BackgroundJobBoard();
     const { hook } = createHook({
       backgroundJobBoard: board,
@@ -962,7 +962,14 @@ describe('task-session-manager hook', () => {
 
     await transformMessages(hook, messages as never);
 
-    expect(board.list()).toHaveLength(0);
+    expect(
+      board
+        .list()
+        .map((job) => job.taskID)
+        .sort(),
+    ).toEqual(['foreground-child', 'terminal-child']);
+    // Tool history establishes identity, not current terminal evidence.
+    expect(board.resolveReusable('parent-1', 'terminal-child')).toBeUndefined();
   });
 
   test('rehydration is idempotent across repeated transforms', async () => {

@@ -83,9 +83,11 @@ it is not yet known to be delegated work. Attribution through the existing task
 launch path promotes it to an ordinary listed task, including recovery wakes.
 This distinction uses explicit provenance, not agent names or description text.
 
-Aliases and reusable-session history are process-local and do not survive process
-restarts as a reusable board. Post-restart recovery is partial and best-effort;
-it does not guarantee restoration of those aliases or the complete history.
+The board is rebuilt after restart from available persisted delegation records,
+including completed foreground and background tasks. Recovery uses the latest call
+for each child and confirms its current host state before allowing reuse. Native
+session IDs remain usable; historical aliases are not restored. Recovery cannot
+reconstruct calls that are no longer available in the parent's persisted context.
 
 ---
 
@@ -218,9 +220,17 @@ Separately, the default-on orchestrator wake scheduler may prompt an
 idle parent with incomplete todos after continuous idle time; it does not depend
 on the local job board.
 
-After a full OpenCode or plugin restart, persisted running background-task
-history is rehydrated into the local job board and immediately reconciled against
-live host session status. A missing or idle child is a stop candidate: after a
+After a full OpenCode or plugin restart, persisted delegation history is
+rehydrated into the local job board and reconciled against current host evidence.
+On v2, the manager reads durable parent tool records separately from the
+model-facing context, which no longer contains the original native `subagent`
+inputs. Completed foreground tasks are recovered too. A completion already
+delivered in the parent's tool output is marked reconciled only when current host
+evidence confirms the same state and result. A later pending resume takes
+precedence over an earlier completion. Recovery does not rewrite prompt history
+or reserve active concurrency slots for terminal historical calls.
+
+For running tasks, a missing or idle child is a stop candidate: after a
 5s confirmation grace it is surfaced as `stopped, unreconciled`, while a busy
 child remains running; status lookup failures remain uncertain rather than being
 treated as completion. When the host client exposes `session.get`, each newly

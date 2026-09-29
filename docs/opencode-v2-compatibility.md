@@ -717,9 +717,18 @@ host across process and plugin restarts:
 
 ### Rehydrate existence probe (`session.get`)
 
-Rehydration re-registers persisted *running* task tool parts so a plugin
-restart does not orphan in-flight background lanes — but a session deleted
-while the plugin was down would resurrect as a forever-running ghost.
+Rehydration re-registers the latest persisted delegation call for each child,
+including completed foreground and background calls. V2 recovery reads the
+parent's durable context once per plugin generation because model-facing
+`tool-call`/`tool-result` parts omit the original native `subagent` inputs. Reads
+have a five-second deadline; an unavailable history read can retry on a later
+transform. Historical records are used only for recovery and do not rewrite
+model-facing history. Calls omitted from the persisted context cannot be restored.
+
+A recovered terminal call becomes reusable only after current host evidence
+confirms completion. When the result matches the parent's recorded tool output,
+it is already delivered and is marked reconciled. A newer pending resume fences
+the older completion, and deleted sessions must not return as running ghosts.
 After rehydration registers a task, the task-session-manager transform
 fires a fire-and-forget `client.session.get` probe per newly registered
 taskID:
